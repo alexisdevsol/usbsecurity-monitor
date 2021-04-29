@@ -23,6 +23,14 @@ elif platform.system() == 'Windows':
 else:
     sys.exit('Unsupported platform. Only Linux and Windows are supported.')
 
+
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
+about = {}
+with open(os.path.join(BASE_DIR, '__version__.py')) as f:
+    exec(f.read(), about)
+
+
 logging.basicConfig(filename='usbsecurity-monitor.log',
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.DEBUG)
@@ -36,25 +44,27 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 
-def permissions(action, device=None):
+def permissions(action, device: Device=None):
     if not url_api:
         raise UndefinedError('URL of api not defined')
 
     if not device:
         device_id = DEVICE_REMOVED
     else:
-        device_id = device.device_id
+        device_id = '%s:%s' % (device.vid, device.pid)
 
-    resp = requests_get(url_api.replace('__action__', action).replace('__id__', device_id))
+    resp = requests_get(url_api.replace('{action}', action).replace('{id}', device_id))
     if not resp.ok:
-        logger.error('HTTPError. Response status code %s' % resp.status_code)
-        raise HTTPError()
+        raise HTTPError('HTTPError. Response status code %s' % resp.status_code)
 
     data = json_loads(resp.content.decode())
     error = data.get('error')
     if error:
-        logger.error(error)
         raise AuthorizeError(error)
+
+    is_authorized = data.get('is_authorized', None)
+    if is_authorized is None or not isinstance(is_authorized, bool):
+        raise BadResponse('The boolean field "is_authenticated" is expected in the JSON response.')
 
     return data
 
@@ -72,7 +82,7 @@ def on_added(device: Device):
 
     try:
         if url_api:
-            _permissions = permissions(ACTION_ADD, '%s:%s' % (device.vid, device.pid))
+            _permissions = permissions(ACTION_ADD, device)
             if _permissions.get('is_authorized', False):
                 logger.info('The device with ID %s has been authorized' % device.device_id)
                 return
@@ -81,8 +91,8 @@ def on_added(device: Device):
             HTTPError,
             UndefinedError,
             AuthorizeError,
-            BadResponse):
-        pass
+            BadResponse) as e:
+        logger.error(e)
 
     DeviceListener.unbind(device)
 
@@ -113,13 +123,15 @@ def read_devices(filename):
 
 
 def parse_args():
+    __version__ = about['__version__']
+
     parser = argparse.ArgumentParser(prog='usbsecurity-monitor',
                                      description='usbsecurity-monitor is the program to control USB ports.')
 
     parser.add_argument('-v',
                         '--version',
                         action='version',
-                        version=f'%(prog)s 1.1.7')
+                        version=f'%(prog)s {__version__}')
     parser.add_argument('-a',
                         '--author',
                         action='version',
@@ -132,8 +144,8 @@ def parse_args():
                         help='File path with the list of not allowed devices')
     parser.add_argument('--url-api',
                         help=textwrap.dedent('''
-                        Access control api URL. The URL should expect two parameters __action__ and __id__.
-                        Example: http://127.0.0.1:8888/api/action/__action__/__id__/. 
+                        Access control api URL. The URL should expect two parameters {action} and {id}.
+                        Example: http://127.0.0.1:8888/api/action/{action}/{id}/. 
                         * Local policies are applied first, followed by remote policies
                         '''))
 
@@ -150,7 +162,7 @@ def main():
     black_list_path = args.black_list
     url_api = args.url_api
 
-    white_list = SortedSet()
+    white_list = SortedSet([])
     if white_list_path:
         if not os.path.exists(white_list_path):
             msg = 'The file with the list of allowed devices does not exist.'
@@ -160,7 +172,7 @@ def main():
             devices = read_devices(white_list_path)
             white_list = SortedSet(devices)
 
-    black_list = SortedSet()
+    black_list = SortedSet([])
     if black_list_path:
         if not os.path.exists(black_list_path):
             msg = 'The file with the list of disallowed devices does not exist.'

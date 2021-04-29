@@ -4,9 +4,13 @@ import re
 
 from setuptools import setup, find_packages
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
-NAME = 'usbsecurity-monitor'
+about = {}
+with open(os.path.join(BASE_DIR, 'usbsecurity_monitor', '__version__.py')) as f:
+    exec(f.read(), about)
+
+NAME = about['__title__']
 
 CURRENT_PYTHON = sys.version_info[:2]
 REQUIRED_PYTHON = (3, 6)
@@ -53,16 +57,17 @@ def get_install_requires():
 
 
 setup(
-    name='usbsecurity-monitor',
-    version='1.1.7',
-    description='usbsecurity-monitor is the program to control USB ports.',
+    name=about['__title__'],
+    description=about['__description__'],
+    version=about['__version__'],
+    author=about['__author__'],
+    author_email=about['__author_email__'],
+    url=about['__url__'],
+    license=about['__license__'],
     long_description=read('README.md'),
     long_description_content_type='text/markdown',
-    author='Alexis Torres Valdes',
-    author_email='alexis89.dev@gmail.com',
     keywords=['usb', 'security', 'ports', 'devices', 'monitor'],
     platforms=['Linux', 'Windows'],
-    license='GPL',
     packages=find_packages(),
     entry_points={
         'console_scripts': [
@@ -76,7 +81,7 @@ setup(
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: GNU General Public License (GPL)',
+        'License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)',
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: Implementation :: CPython',

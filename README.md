@@ -4,9 +4,7 @@ usbsecurity-monitor is the program to control USB ports.
 
 # Installation
 
-It is installed through PIP:
-
-pip install usbsecurity-monitor
+pip3 install usbsecurity-monitor
 
 # Usage
 

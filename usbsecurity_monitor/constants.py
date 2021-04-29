@@ -1,0 +1,3 @@
+ACTION_ADD = 'add'
+ACTION_REMOVE = 'remove'
+DEVICE_REMOVED = '0000:0000'

@@ -1,0 +1,6 @@
+requests
+sortedcontainers
+pyudev; sys_platform == "linux"
+pywin32; sys_platform == "win32"
+win32gui; sys_platform == "win32"
+psutil; sys_platform == "win32"

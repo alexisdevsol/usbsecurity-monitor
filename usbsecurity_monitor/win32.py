@@ -1,7 +1,6 @@
 import os
 import logging
 import sys
-import pathlib
 from subprocess import call
 
 import win32api

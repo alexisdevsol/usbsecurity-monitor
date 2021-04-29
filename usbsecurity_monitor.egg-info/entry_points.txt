@@ -1,0 +1,3 @@
+[console_scripts]
+usbsecurity-monitor = usbsecurity_monitor.monitor:main
+

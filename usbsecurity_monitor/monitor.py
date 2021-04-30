@@ -8,10 +8,16 @@ import platform
 import sys
 import textwrap
 import re
+from urllib.parse import urljoin
+
+import webview
 from json import loads as json_loads
+from re import match
+
 from requests import HTTPError, ConnectionError
 from requests import get as requests_get
 from sortedcontainers import SortedSet
+from subprocess import call, check_output, CalledProcessError
 
 from usbsecurity_monitor.constants import ACTION_REMOVE, ACTION_ADD, DEVICE_REMOVED
 from usbsecurity_monitor.exceptions import UnsupportedPlatform, UndefinedError, AuthorizeError, BadResponse
@@ -42,6 +48,100 @@ ch.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 ch.setFormatter(formatter)
 logger.addHandler(ch)
+
+
+def has_cef():
+    if platform.system() == 'Linux':
+        try:
+            output = check_output('chromium-browser --version', shell=True)
+            _match = match('Chromium (?P<version>\d+).\d+.\d+.\d+ .*', output.decode())
+            if _match:
+                return 66 < int(_match.groupdict()['version'])
+        except CalledProcessError:
+            pass
+
+        try:
+            output = check_output('google-chrome --version', shell=True)
+            _match = match('Google Chrome (?P<version>\d+).\d+.\d+.\d+ .*', output.decode())
+            if _match:
+                return 66 < int(_match.groupdict()['version'])
+        except CalledProcessError:
+            pass
+
+    if platform.system() == 'Windows':
+        try:
+            output = check_output('dir /B/AD "C:\Program Files (x86)\Google\Chrome\Application\"|findstr /R /C:"^[0-9].*\..*[0-9]$"', shell=True)
+            _match = match('(?P<version>\d+).\d+.\d+.\d+', output.decode())
+            if _match:
+                return 66 < int(_match.groupdict()['version'])
+        except CalledProcessError:
+            pass
+
+        try:
+            output = check_output('dir /B/AD "C:\Program Files\Google\Chrome\Application\"|findstr /R /C:"^[0-9].*\..*[0-9]$"', shell=True)
+            _match = match('(?P<version>\d+).\d+.\d+.\d+', output.decode())
+            if _match:
+                return 66 < int(_match.groupdict()['version'])
+        except CalledProcessError:
+            pass
+
+        try:
+            output = check_output(
+                'dir /B/AD "C:\Program Files (x86)\Google\Chromium\Application\"|findstr /R /C:"^[0-9].*\..*[0-9]$"',
+                shell=True)
+            _match = match('(?P<version>\d+).\d+.\d+.\d+', output.decode())
+            if _match:
+                return 66 < int(_match.groupdict()['version'])
+        except CalledProcessError:
+            pass
+
+        try:
+            output = check_output(
+                'dir /B/AD "C:\Program Files\Google\Chromium\Application\"|findstr /R /C:"^[0-9].*\..*[0-9]$"',
+                shell=True)
+            _match = match('(?P<version>\d+).\d+.\d+.\d+', output.decode())
+            if _match:
+                return 66 < int(_match.groupdict()['version'])
+        except CalledProcessError:
+            pass
+
+    return False
+
+
+def open_gui():
+    if platform.system() == 'Linux':
+        username = os.getlogin()
+        cmd = 'cp -a /home/%s/.Xauthority /root/.Xauthority' % username
+        rc = call(cmd, shell=True)
+        if rc != 0:
+            logger.error('Error when executing the command "%s"' % cmd)
+            return False
+
+        cmd = 'chown root: /root/.Xauthority'
+        rc = call(cmd, shell=True)
+        if rc != 0:
+            logger.error('Error when executing the command "%s"' % cmd)
+            return False
+
+        cmd = 'XAUTHORITY=/root/.Xauthority'
+        rc = call(cmd, shell=True)
+        if rc != 0:
+            logger.error('Error when executing the command "%s"' % cmd)
+            return False
+
+    window = webview.create_window('USBSecurity', urljoin('http://%s:%s' % (host, port), 'account'),
+                                   width=1024, height=600)
+    window.loaded += on_loaded
+
+    if has_cef():
+        try:
+            webview.start(gui='cef')
+            return True
+        except Exception as e:
+            logger.warning(e)
+    webview.start()
+
+    return True
 
 
 def permissions(action, device: Device=None):
@@ -87,10 +187,19 @@ def on_added(device: Device):
                 logger.info('The device with ID %s has been authorized' % device.device_id)
                 return
             logger.info('The device with ID %s has not been authorized.' % device.device_id)
+    except AuthorizeError as e:
+        logger.error(e)
+        DeviceListener.unbind(device)
+        if open_gui():
+            _permissions = permissions(ACTION_ADD, device)
+            if _permissions.get('is_authorized', False):
+                logger.info('The device with ID %s has been authorized' % device.device_id)
+                DeviceListener.bind(device)
+                return
+            logger.info('The device with ID %s has not been authorized.' % device.device_id)
     except (ConnectionError,
             HTTPError,
             UndefinedError,
-            AuthorizeError,
             BadResponse) as e:
         logger.error(e)
 
@@ -112,6 +221,12 @@ def on_removed(device: Device):
                 BadResponse) as err:
             logger.error(err)
             return
+
+
+def on_loaded():
+    url_account = urljoin('http://%s:%s' % (host, port), 'account/')
+    if webview.windows[0].get_current_url() == url_account:
+        webview.windows[0].destroy()
 
 
 def read_devices(filename):
@@ -138,6 +253,13 @@ def parse_args():
                         version='%(prog)s was created by software developer Alexis Torres Valdes <alexis89.dev@gmail.com>',
                         help="show program's author and exit")
 
+    parser.add_argument('--host',
+                        default='127.0.0.1',
+                        help='Host where usbsecurity-server runs. Default: 127.0.0.1')
+    parser.add_argument('--port',
+                        type=int,
+                        default=8888,
+                        help='Port where usbsecurity-server runs. Default: 8888')
     parser.add_argument('--white-list',
                         help='File path with the list of allowed devices')
     parser.add_argument('--black-list',
@@ -153,11 +275,15 @@ def parse_args():
 
 
 def main():
+    global host
+    global port
     global white_list
     global black_list
     global url_api
 
     args = parse_args()
+    host = args.host
+    port = args.port
     white_list_path = args.white_list
     black_list_path = args.black_list
     url_api = args.url_api

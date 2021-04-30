@@ -1,7 +1,5 @@
 requests
 sortedcontainers
-pywebview
-cefpython3
 pyudev; sys_platform == "linux"
 pywin32; sys_platform == "win32"
 win32gui; sys_platform == "win32"

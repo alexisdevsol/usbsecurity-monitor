@@ -100,14 +100,20 @@ def on_added(device: Device):
     DeviceListener.unbind(device)
 
 
-def on_removed(device: Device):
-    logger.info('Remove device')
+def on_removed(device: Device=None):
+    if not device:
+        logger.info('Remove device')
+    else:
+        logger.info('Remove device %s' % device)
 
     if url_api:
         try:
-            _permissions = permissions(ACTION_REMOVE)
+            _permissions = permissions(ACTION_REMOVE, device)
             if not _permissions.get('is_authorized', False):
-                logger.info('Unauthorized device')
+                if not device:
+                    logger.info('Unauthorized device')
+                else:
+                    logger.info('Unauthorized device %s' % device)
         except (ConnectionError,
                 HTTPError,
                 UndefinedError,

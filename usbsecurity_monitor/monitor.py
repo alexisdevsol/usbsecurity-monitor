@@ -134,8 +134,7 @@ def read_devices(filename):
 def parse_args():
     __version__ = about['__version__']
 
-    parser = argparse.ArgumentParser(prog='usbsecurity-monitor',
-                                     description='usbsecurity-monitor is the program to control USB ports.')
+    parser = argparse.ArgumentParser(prog=about['__title__'], description=about['__description__'])
 
     parser.add_argument('-v',
                         '--version',

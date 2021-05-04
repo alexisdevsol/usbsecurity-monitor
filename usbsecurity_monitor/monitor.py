@@ -100,8 +100,8 @@ def on_added(device: Device):
 def on_removed(device: Device = None):
     if not device:
         logger.info('Remove device')
-    else:
-        logger.info('Remove device %s' % device)
+    elif device.device_id:
+        logger.info('Remove device %s' % device.device_id)
 
     if url_api:
         try:
@@ -109,8 +109,8 @@ def on_removed(device: Device = None):
             if not _permissions.get('is_authorized', False):
                 if not device:
                     logger.info('Unauthorized device')
-                else:
-                    logger.info('Unauthorized device %s' % device)
+                elif device.device_id:
+                    logger.info('Unauthorized device %s' % device.device_id)
         except (ConnectionError,
                 HTTPError,
                 UndefinedError,
@@ -166,6 +166,8 @@ def main():
     white_list_path = args.white_list
     black_list_path = args.black_list
     url_api = args.url_api
+
+    url_api = 'http://127.0.0.1:8888/api/action/{action}/{id}/'
 
     white_list = SortedSet([])
     if white_list_path:

@@ -8,7 +8,6 @@ import platform
 import sys
 import textwrap
 import re
-from urllib.parse import urljoin
 
 from json import loads as json_loads
 
@@ -26,13 +25,11 @@ elif platform.system() == 'Windows':
 else:
     sys.exit('Unsupported platform. Only Linux and Windows are supported.')
 
-
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 about = {}
 with open(os.path.join(BASE_DIR, '__version__.py')) as f:
     exec(f.read(), about)
-
 
 logging.basicConfig(filename='usbsecurity-monitor.log',
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -47,7 +44,7 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 
-def permissions(action, device: Device=None):
+def permissions(action, device: Device = None):
     if not url_api:
         raise UndefinedError('URL of api not defined')
 
@@ -100,7 +97,7 @@ def on_added(device: Device):
     DeviceListener.unbind(device)
 
 
-def on_removed(device: Device=None):
+def on_removed(device: Device = None):
     if not device:
         logger.info('Remove device')
     else:
@@ -145,7 +142,7 @@ def parse_args():
                         action='version',
                         version='%(prog)s was created by software developer Alexis Torres Valdes <alexis89.dev@gmail.com>',
                         help="show program's author and exit")
-    
+
     parser.add_argument('--white-list',
                         help='File path with the list of allowed devices')
     parser.add_argument('--black-list',
